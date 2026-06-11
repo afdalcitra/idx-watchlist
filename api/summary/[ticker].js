@@ -16,12 +16,6 @@ export default async function handler(req, res) {
       events: "dividends",
     });
 
-    console.log(
-      "[dividends] meta keys:",
-      JSON.stringify(Object.keys(data?.meta || {})),
-    );
-    console.log("[dividends] events:", JSON.stringify(data?.events));
-
     // Ganti bagian ini saja
     const events = data?.events?.dividends || [];
     const currentPrice = data?.meta?.regularMarketPrice;

@@ -12,15 +12,15 @@ export default async function handler(req, res) {
 
     const data = await yahooFinance.chart(symbol, {
       interval: "1d",
-      range: "20y",
+      period1: "2000-01-01", // ✅ ganti range → period1
       events: "dividends",
     });
 
-    const events = data?.events?.dividends || {}; // ← path berbeda dari v8 raw
+    const events = data?.events?.dividends || []; // ✅ sudah array, bukan object
     const currentPrice = data?.meta?.regularMarketPrice;
 
-    const dividends = Object.values(events)
-      .map((d) => ({ date: d.date * 1000, amount: d.amount }))
+    const dividends = events
+      .map((d) => ({ date: new Date(d.date).getTime(), amount: d.amount })) // ✅ date sudah ISO string
       .sort((a, b) => b.date - a.date);
 
     if (dividends.length === 0) {
@@ -73,6 +73,7 @@ export default async function handler(req, res) {
       },
     });
   } catch (e) {
+    console.error("[dividends]", e.message);
     res.status(500).json({ error: e.message });
   }
 }
