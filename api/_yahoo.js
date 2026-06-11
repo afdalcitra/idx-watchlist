@@ -1,5 +1,5 @@
 // api/_yahoo.js
-import { YahooFinance } from "yahoo-finance2";
+import YahooFinance from "yahoo-finance2";
 
 const yahooFinance = new YahooFinance();
 
