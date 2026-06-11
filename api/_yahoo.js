@@ -1,5 +1,7 @@
 // api/_yahoo.js
-import yahooFinance from "yahoo-finance2";
+import { YahooFinance } from "yahoo-finance2";
+
+const yahooFinance = new YahooFinance();
 
 export function toSymbol(ticker) {
   const t = ticker.toUpperCase();
