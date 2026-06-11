@@ -8,6 +8,19 @@ export default async function handler(req, res) {
   if (!ticker) return res.status(400).json({ error: "ticker required" });
 
   try {
+    const data = await yahooFinance.chart(symbol, {
+      interval: "1d",
+      range: "20y",
+      events: "dividends",
+    });
+
+    console.log("[dividends] data keys:", JSON.stringify(Object.keys(data)));
+    console.log("[dividends] events:", JSON.stringify(data?.events));
+    console.log(
+      "[dividends] meta keys:",
+      JSON.stringify(Object.keys(data?.meta || {})),
+    );
+
     const symbol = toSymbol(ticker);
 
     const [quoteResult, summaryResult] = await Promise.allSettled([
