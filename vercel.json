@@ -1,0 +1,12 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/api/summary/:ticker", "destination": "/api/summary/[ticker]" },
+    { "source": "/api/dividends/:ticker", "destination": "/api/dividends/[ticker]" },
+    { "source": "/api/search/:query", "destination": "/api/search/[query]" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
