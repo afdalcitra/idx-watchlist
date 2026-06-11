@@ -22,11 +22,12 @@ export default async function handler(req, res) {
     );
     console.log("[dividends] events:", JSON.stringify(data?.events));
 
-    const events = data?.events?.dividends || {};
+    // Ganti bagian ini saja
+    const events = data?.events?.dividends || [];
     const currentPrice = data?.meta?.regularMarketPrice;
 
-    const dividends = Object.values(events)
-      .map((d) => ({ date: d.date * 1000, amount: d.amount }))
+    const dividends = events
+      .map((d) => ({ date: new Date(d.date).getTime(), amount: d.amount }))
       .sort((a, b) => b.date - a.date);
 
     if (dividends.length === 0) {
