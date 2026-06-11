@@ -8,86 +8,78 @@ export default async function handler(req, res) {
   if (!ticker) return res.status(400).json({ error: "ticker required" });
 
   try {
+    const symbol = toSymbol(ticker);
+
     const data = await yahooFinance.chart(symbol, {
       interval: "1d",
-      range: "20y",
+      period1: "2000-01-01",
       events: "dividends",
     });
 
-    console.log("[dividends] data keys:", JSON.stringify(Object.keys(data)));
-    console.log("[dividends] events:", JSON.stringify(data?.events));
     console.log(
       "[dividends] meta keys:",
       JSON.stringify(Object.keys(data?.meta || {})),
     );
+    console.log("[dividends] events:", JSON.stringify(data?.events));
 
-    const symbol = toSymbol(ticker);
+    const events = data?.events?.dividends || {};
+    const currentPrice = data?.meta?.regularMarketPrice;
 
-    const [quoteResult, summaryResult] = await Promise.allSettled([
-      yahooFinance.quote(symbol),
-      yahooFinance.quoteSummary(symbol, {
-        modules: [
-          "price",
-          "summaryDetail",
-          "defaultKeyStatistics",
-          "incomeStatementHistory",
-        ],
-      }),
-    ]);
+    const dividends = Object.values(events)
+      .map((d) => ({ date: d.date * 1000, amount: d.amount }))
+      .sort((a, b) => b.date - a.date);
 
-    const q = quoteResult.status === "fulfilled" ? quoteResult.value : {};
-    const qs = summaryResult.status === "fulfilled" ? summaryResult.value : {};
+    if (dividends.length === 0) {
+      return res.status(200).json({ dividends: [], byYear: {}, stats: null });
+    }
 
-    const priceModule = qs?.price || {};
-    const summaryModule = qs?.summaryDetail || {};
-    const keyStats = qs?.defaultKeyStatistics || {};
-    const incomeHistory =
-      qs?.incomeStatementHistory?.incomeStatementHistory || [];
+    const byYear = {};
+    dividends.forEach((d) => {
+      const year = new Date(d.date).getFullYear();
+      byYear[year] = (byYear[year] || 0) + d.amount;
+    });
 
-    const latestIncome = incomeHistory[0] || {};
-    const revenue = latestIncome.totalRevenue ?? null;
-    const netIncome = latestIncome.netIncome ?? null;
-    const netMargin = revenue && netIncome ? (netIncome / revenue) * 100 : null;
+    const now = new Date();
+    const thisYear = now.getFullYear();
+    const lastYear = thisYear - 1;
 
-    const price =
-      priceModule.regularMarketPrice ?? q.regularMarketPrice ?? null;
-    const prevClose =
-      priceModule.regularMarketPreviousClose ??
-      q.regularMarketPreviousClose ??
-      null;
-    const change =
-      priceModule.regularMarketChange ?? q.regularMarketChange ?? null;
-    const changePct =
-      priceModule.regularMarketChangePercent ??
-      q.regularMarketChangePercent ??
-      null;
+    const sumLastYear = byYear[lastYear] || 0;
+    const sumThisYear = byYear[thisYear] || 0;
+
+    const ttmCutoff = now.getTime() - 365 * 24 * 60 * 60 * 1000;
+    const ttmSum = dividends
+      .filter((d) => d.date >= ttmCutoff)
+      .reduce((s, d) => s + d.amount, 0);
+
+    const years5 = [
+      lastYear,
+      thisYear - 2,
+      thisYear - 3,
+      thisYear - 4,
+      thisYear - 5,
+    ];
+    const avg5 = years5.reduce((s, y) => s + (byYear[y] || 0), 0) / 5;
+
+    const yieldCalc = (amount) =>
+      currentPrice ? (amount / currentPrice) * 100 : null;
 
     res.status(200).json({
-      ticker: symbol,
-      shortName: priceModule.shortName || q.shortName || symbol,
-      longName: priceModule.longName || q.longName || symbol,
-      regularMarketPrice: price,
-      regularMarketChange: change,
-      regularMarketChangePercent: changePct,
-      previousClose: prevClose,
-      currency: q.currency || "IDR",
-      marketCap: priceModule.marketCap ?? q.marketCap ?? null,
-      trailingPE:
-        summaryModule.trailingPE ?? keyStats.trailingPE ?? q.trailingPE ?? null,
-      priceToBook: keyStats.priceToBook ?? q.priceToBook ?? null,
-      trailingEps: keyStats.trailingEps ?? q.epsTrailingTwelveMonths ?? null,
-      revenue,
-      netIncome,
-      netMargin,
-      fiftyTwoWeekHigh:
-        summaryModule.fiftyTwoWeekHigh ?? q.fiftyTwoWeekHigh ?? null,
-      fiftyTwoWeekLow:
-        summaryModule.fiftyTwoWeekLow ?? q.fiftyTwoWeekLow ?? null,
-      averageVolume:
-        summaryModule.averageVolume ?? q.averageDailyVolume3Month ?? null,
+      dividends,
+      byYear,
+      stats: {
+        currentPrice,
+        lastYearTotal: sumLastYear,
+        lastYearYield: yieldCalc(sumLastYear),
+        thisYearTotal: sumThisYear,
+        thisYearYield: yieldCalc(sumThisYear),
+        ttmTotal: ttmSum,
+        ttmYield: yieldCalc(ttmSum),
+        avg5Year: avg5,
+        avg5YearYield: yieldCalc(avg5),
+      },
     });
   } catch (e) {
-    console.error("[summary]", e.message);
+    console.error("[dividends]", e.message);
     res.status(500).json({ error: e.message });
   }
 }
